@@ -1,5 +1,5 @@
 import type { CardRuleFunction, Game, RuleTarget } from "./type";
-import { type Outcome, success, failure } from "../shared/result";
+import { type Outcome, success, failure, validate } from "../shared/result";
 import type { GameActionFailure } from "./type";
 import { drawCard, drawCardFromStack, addCardToStack } from "../card";
 import { isGameInRightState } from "./errorHandling";
@@ -32,17 +32,23 @@ export function playerSaysGabo(
   game: Game,
   playerId: string
 ): Outcome<Game, GameActionFailure> {
-  const isCurrentPlayerResult = isPlayerIdTheCurrentPlayer(game, playerId);
-  if (isCurrentPlayerResult.isFailure && !game.config.isRapidGaboAllowed) {
-    return failure(isCurrentPlayerResult.error);
-  }
+  const playerIndexResult = validate(getPlayerIndex(game, playerId))
+    .check((playerIndex) => {
+      const isCurrentPlayer = isPlayerIdTheCurrentPlayer(game, playerId);
+      if (isCurrentPlayer.isFailure && !game.config.isRapidGaboAllowed) {
+        return failure(isCurrentPlayer.error);
+      }
+      return success(playerIndex);
+    })
+    .check((playerIndex) => {
+      const isInRightState = isGameInRightState(game, ["gabo", "playing"]);
+      if (isInRightState.isFailure) {
+        return failure(isInRightState.error);
+      }
+      return success(playerIndex);
+    })
+    .result();
 
-  const stateResult = isGameInRightState(game, ["gabo", "playing"]);
-  if (stateResult.isFailure) {
-    return failure(stateResult.error);
-  }
-
-  const playerIndexResult = getPlayerIndex(game, playerId);
   if (playerIndexResult.isFailure) {
     return failure(playerIndexResult.error);
   }
