@@ -6,7 +6,6 @@ import { getPlayerIndex } from "./getters";
 export function setCurrentPlayerToNextPlayer(
   game: Game
 ): Outcome<Game, GameActionFailure> {
-  game = structuredClone(game);
   const stateResult = isGameInRightState(game, ["playing"]);
   if (stateResult.isFailure) {
     return failure(stateResult.error);

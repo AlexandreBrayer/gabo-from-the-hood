@@ -15,7 +15,9 @@ const config: GameConfig = {
     [25, 50],
     [50, 100],
   ],
-  cardRules: [],
+  cardRules: [
+    [{ value: "Ace", suit: "Hearts"}, lookupOwnCard],
+  ],
   falseGaboScore: 25,
   counterGaboScore: 50,
   cardScores: [],

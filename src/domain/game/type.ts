@@ -57,7 +57,7 @@ export type CardRuleStep =
 export type CardRuleFunction = (
   game: Game,
   target: RuleTarget,
-  caster?: RuleTarget
+  caster:  RuleCaster
 ) => CardRuleStep;
 
 export type CardRule = [Card, CardRuleFunction];

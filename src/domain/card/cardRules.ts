@@ -1,5 +1,5 @@
 import { getPlayerById } from "../game/getters";
-import type { Game, RuleTarget, CardRuleStep, RuleCaster } from "../game/type";
+import type { Game, RuleTarget, CardRuleStep, RuleCaster, CardRuleFunction } from "../game/type";
 import { success, failure, validate } from "../shared/result";
 import { isValidMatIndex } from "../player/getters";
 import { asGameActionFailure } from "../game/errorHandling";
@@ -32,11 +32,11 @@ function stepSuccess(game: Game, extras?: {
  * @param caster - The player and index of the card to exchange with.
  * @returns A CardRuleStep indicating the result of the operation.
  */
-export function exchangeMatCard(
+export const exchangeMatCard: CardRuleFunction = (
   game: Game,
   target: RuleTarget,
-  caster: RuleTarget // since the caster is affected by the exchange, we use RuleTarget here
-): CardRuleStep {
+  caster: RuleCaster
+) => {
   const p1 = validate(getPlayerById(game, target.playerId))
   .check((player) => {
     const idxCheck = isValidMatIndex(player, target.matIndex);
@@ -52,7 +52,7 @@ export function exchangeMatCard(
   }
   const p2 = validate(getPlayerById(game, caster.playerId))
   .check((player) => {
-    const idxCheck = isValidMatIndex(player, caster.matIndex);
+    const idxCheck = isValidMatIndex(player, caster.matIndex ?? -1); // in case caster.matIndex is not provided, we assume -1
     if (idxCheck.isFailure) {
       return failure(asGameActionFailure(idxCheck.error, game));
     }
@@ -79,11 +79,11 @@ export function exchangeMatCard(
  * @param caster - The player who is looking up the card.
  * @returns A CardRuleStep indicating the result of the lookup.
  */
-export function lookupOwnCard(
+export const lookupOwnCard: CardRuleFunction = (
   game: Game,
   target: RuleTarget,
   caster: RuleCaster
-): CardRuleStep {
+) =>  {
   const player = validate(getPlayerById(game, target.playerId))
     .check((player) => {
       const idxCheck = isValidMatIndex(player, target.matIndex);
@@ -118,11 +118,11 @@ export function lookupOwnCard(
  * @param caster - The player who is looking up the card.
  * @returns A CardRuleStep indicating the result of the lookup.
  */
-export function lookupOthersCard(
+export const lookupOthersCard : CardRuleFunction= (
   game: Game,
   target: RuleTarget,
   caster: RuleCaster
-): CardRuleStep {
+) => {
   const player = validate(getPlayerById(game, target.playerId))
     .check((player) => {
       const idxCheck = isValidMatIndex(player, target.matIndex);
@@ -155,11 +155,11 @@ export function lookupOthersCard(
  * @param caster - The player who is looking up the card and may exchange it.
  * @returns A CardRuleStep indicating the result of the lookup and potential exchange.
  */
-export function lookupAndMaybeExchangeCard(
+export const lookupAndMaybeExchangeCard: CardRuleFunction = (
   game: Game,
   target: RuleTarget,
   caster: RuleCaster
-): CardRuleStep {
+) => {
   const lookupResult = lookupOthersCard(game, target, caster);
   if (lookupResult.type !== "result") {
     return lookupResult;
