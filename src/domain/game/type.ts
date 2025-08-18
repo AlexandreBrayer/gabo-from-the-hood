@@ -49,7 +49,7 @@ export type CardRuleStep =
       };
     }
   | {
-      type: "askExchangeDecision";
+      type: "cardBasedDecision";
       card: Card;
       continue: (doExchange: boolean, matIndex?: number) => CardRuleStep
     };

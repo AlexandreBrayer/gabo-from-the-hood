@@ -216,7 +216,7 @@ const lookupResult = lookupAndMaybeExchangeCard(
   { playerId: "2", matIndex: 1 }
 );
 
-if (lookupResult.type !== "askExchangeDecision") {
+if (lookupResult.type !== "cardBasedDecision") {
   throw new Error("Expected result type but got: " + lookupResult.type);
 }
 

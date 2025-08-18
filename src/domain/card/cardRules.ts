@@ -174,7 +174,7 @@ export function lookupAndMaybeExchangeCard(
     return stepError("Card not found in lookup result", game);
   }
   return {
-    type: "askExchangeDecision",
+    type: "cardBasedDecision",
     card,
     continue: (doExchange, matIndex?) => {
       if (!doExchange) return { type: "result", result: success(game) };
