@@ -241,3 +241,22 @@ if (exchangeDecision.result.isFailure) {
 
 console.log("Bob mat after exchange: ", exchangeDecision.result.value.players[1].cardMat);
 console.log("Alice mat after exchange: ", exchangeDecision.result.value.players[0].cardMat);
+
+// force set the player id 2 to have an ace of hearts held
+const player2 = exchangeDecision.result.value.players.find(p => p.id === "2");
+if (!player2) {
+  throw new Error("Player 2 not found in game state");
+}
+player2.heldCard = { value: "Ace", suit: "Hearts" };
+
+const playHeldCardResult = playerActions.playerPlaysHeldCard(
+  exchangeDecision.result.value,
+  "2"
+);
+if (playHeldCardResult.isFailure) {
+  console.error("Failed to play held card:", playHeldCardResult.error.error);
+  throw new Error(playHeldCardResult.error.error);
+}
+
+console.log("Held card played. Game state after playing held card:", playHeldCardResult.value.game);
+console.log("Card rule function for played card:", playHeldCardResult.value.cardRule);

@@ -1,4 +1,4 @@
-import type { Game } from "./type";
+import type { CardRuleFunction, Game, RuleTarget } from "./type";
 import { type Outcome, success, failure } from "../shared/result";
 import type { GameActionFailure } from "./type";
 import { drawCard, drawCardFromStack, addCardToStack } from "../card";
@@ -191,7 +191,7 @@ export function playerDrawsCardFromStack(
   return success(game);
 }
 /**
- * Allows a player to discard their held card.
+ * Allows a player to discard their held card. Without using the card effect.
  * @param game The current game state.
  * @param playerId The ID of the player discarding the card.
  * @returns An Outcome containing the updated game state or an error.
@@ -227,6 +227,50 @@ export function playerDiscardsHeldCard(
   currentPlayer.heldCard = null;
 
   return success(game);
+}
+
+
+/**
+ * Allows a player to play their held card, returning the card rule function if it exists.
+ * The game engine is expected to handle the card effect based on the returned function.
+ * @param game The current game state.
+ * @param playerId The ID of the player playing the card.
+ * @returns An Outcome containing the updated game state and the card rule function or an error.
+ */
+export function playerPlaysHeldCard(
+  game: Game,
+  playerId: string,
+): Outcome<{game: Game, cardRule: CardRuleFunction | undefined}, GameActionFailure> {
+  const isCurrentPlayerResult = isPlayerIdTheCurrentPlayer(game, playerId);
+  if (isCurrentPlayerResult.isFailure) {
+    return failure(isCurrentPlayerResult.error);
+  }
+  const stateResult = isGameInRightState(game, ["playing"]);
+  if (stateResult.isFailure) {
+    return failure(stateResult.error);
+  }
+
+  const playerIndexResult = getPlayerIndex(game, playerId);
+  if (playerIndexResult.isFailure) {
+    return failure(playerIndexResult.error);
+  }
+
+  const currentPlayer = game.players[playerIndexResult.value];
+  const heldCard = currentPlayer.heldCard;
+  if (!heldCard) {
+    return failure({
+      error: `Player with ID ${currentPlayer.id} has no card to play.`,
+      game,
+    });
+  }
+
+  game.stack = addCardToStack(game.stack, heldCard);
+  const cardRules = game.config.cardRules
+  const rule = cardRules.find(([card]) => card.suit === heldCard.suit && card.value === heldCard.value);
+  const [, cardRule] = rule || [];
+  currentPlayer.heldCard = null;
+
+  return success({ game, cardRule });
 }
 
 /**
