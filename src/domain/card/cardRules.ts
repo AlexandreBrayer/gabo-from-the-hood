@@ -176,8 +176,8 @@ export function lookupAndMaybeExchangeCard(
   return {
     type: "cardBasedDecision",
     card,
-    continue: (doExchange, matIndex?) => {
-      if (!doExchange) return { type: "result", result: success(game) };
+    continue: (doContinue, matIndex?) => {
+      if (!doContinue) return { type: "result", result: success(game) };
       return exchangeMatCard(game, target, {
         ...caster,
         matIndex: matIndex ?? -1,

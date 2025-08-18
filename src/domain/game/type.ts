@@ -51,7 +51,7 @@ export type CardRuleStep =
   | {
       type: "cardBasedDecision";
       card: Card;
-      continue: (doExchange: boolean, matIndex?: number) => CardRuleStep
+      continue: (doContinue: boolean, matIndex?: number) => CardRuleStep
     };
 
 export type CardRuleFunction = (
