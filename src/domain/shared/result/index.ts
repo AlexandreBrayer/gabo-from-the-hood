@@ -5,7 +5,6 @@ export type Result<T, E> =
       value: T;
       map: <U>(fn: (value: T) => U) => Result<U, E>;
       flatMap: <U>(fn: (value: T) => Result<U, E>) => Result<U, E>;
-      mapError: <E2>(fn: (error: E) => E2) => Result<T, E2>;
       match: <U>(handlers: {
         success: (value: T) => U;
         failure: (error: E) => U;
@@ -18,7 +17,6 @@ export type Result<T, E> =
       error: E;
       map: <U>(fn: (value: T) => U) => Result<U, E>;
       flatMap: <U>(fn: (value: T) => Result<U, E>) => Result<U, E>;
-      mapError: <E2>(fn: (error: E) => E2) => Result<T, E2>;
       match: <U>(handlers: {
         success: (value: T) => U;
         failure: (error: E) => U;
@@ -36,7 +34,6 @@ export function success<T>(value: T): Success<T> {
     value,
     map: (fn) => success(fn(value)),
     flatMap: (fn) => fn(value),
-    mapError: <E2>() => success(value) as unknown as Result<T, E2>,
     match: ({ success }) => success(value),
     toJSON: () => ({ isSuccess: true, value }),
   };
@@ -49,7 +46,6 @@ export function failure<E>(error: E): Failure<E> {
     error,
     map: () => failure(error),
     flatMap: () => failure(error),
-    mapError: (fn) => failure(fn(error)),
     match: ({ failure }) => failure(error),
     toJSON: () => ({ isSuccess: false, error }),
   };
