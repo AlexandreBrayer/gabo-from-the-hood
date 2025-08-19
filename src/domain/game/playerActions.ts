@@ -106,9 +106,9 @@ export function playerSaysCounterGabo(
     return failure(playerIndexResult.error);
   }
 
-  const currentPlayer = game.players[playerIndexResult.value];
+  const player = game.players[playerIndexResult.value];
 
-  game.counterGaboPlayers.push(currentPlayer.id);
+  game.counterGaboPlayers.push(player.id);
 
   return success(game);
 }
