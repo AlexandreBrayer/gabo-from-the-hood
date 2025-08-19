@@ -73,29 +73,40 @@ export function playerSaysCounterGabo(
   game: Game,
   playerId: string
 ): Outcome<Game, GameActionFailure> {
-  const isCurrentPlayerResult = isPlayerIdTheCurrentPlayer(game, playerId);
-  if (isCurrentPlayerResult.isFailure) {
-    return failure(isCurrentPlayerResult.error);
-  }
-  const stateResult = isGameInRightState(game, ["gabo"]);
-  if (stateResult.isFailure) {
-    return failure(stateResult.error);
-  }
-  const playerIndexResult = getPlayerIndex(game, playerId);
+  const playerIndexResult = validate(getPlayerIndex(game, playerId))
+    .check((playerIndex) => {
+      const isCurrentPlayer = isPlayerIdTheCurrentPlayer(game, playerId);
+      if (isCurrentPlayer.isFailure) {
+        return failure(isCurrentPlayer.error);
+      }
+      return success(playerIndex);
+    })
+    .check((playerIndex) => {
+      if (game.state !== "gabo") {
+        return failure({
+          error: `Cannot declare Counter Gabo in state ${game.state}.`,
+          game,
+        });
+      }
+      return success(playerIndex);
+    })
+    .check((playerIndex) => {
+      const currentPlayer = game.players[playerIndex];
+      if (!game.gaboPlayers.includes(currentPlayer.id)) {
+        return failure({
+          error: `Player with ID ${currentPlayer.id} has not declared Gabo.`,
+          game,
+        });
+      }
+      return success(playerIndex);
+    })
+    .result();
+
   if (playerIndexResult.isFailure) {
     return failure(playerIndexResult.error);
   }
-  const currentPlayer = game.players[playerIndexResult.value];
-  if (!game.gaboPlayers.includes(currentPlayer.id)) {
-    return failure({
-      error: `Player with ID ${currentPlayer.id} has not declared Gabo.`,
-      game,
-    });
-  }
 
-  if (!game.counterGaboPlayers) {
-    game.counterGaboPlayers = [];
-  }
+  const currentPlayer = game.players[playerIndexResult.value];
 
   game.counterGaboPlayers.push(currentPlayer.id);
 

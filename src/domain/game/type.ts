@@ -11,7 +11,7 @@ export type Game = {
   players: Player[];
   currentPlayerId: string | null; // ID of the player whose turn it is
   gaboPlayers: string[]; // Player IDs who have declared "Gabo"
-  counterGaboPlayers?: string[]; // Player IDs who have declared "Counter Gabo"
+  counterGaboPlayers: string[]; // Player IDs who have declared "Counter Gabo"
 };
 
 export type GameState = "waiting" | "playing" | "gabo" | "finished";
