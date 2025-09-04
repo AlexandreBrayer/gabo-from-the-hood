@@ -17,7 +17,7 @@ export function asGameActionFailure<E>(error: E, game: Game): GameActionFailure 
 export function isGameInRightState(
   game: Game,
   expectedStates: GameState[]
-): Outcome<Game, GameActionFailure> {
+): Outcome<void, GameActionFailure> {
   if (!expectedStates.includes(game.state)) {
     return failure({
       error: `Game is in state ${
@@ -26,5 +26,5 @@ export function isGameInRightState(
       game,
     });
   }
-  return success(game);
+  return success(undefined);
 }

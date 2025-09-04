@@ -5,19 +5,40 @@ import { drawCard, drawCardFromStack, addCardToStack } from "../card";
 import { isGameInRightState } from "./errorHandling";
 import { exchangeCardInPlayerMat } from "../player";
 import type { Card } from "../card/type";
-import { getPlayerIndex } from "./getters";
+import { getPlayerById, getPlayerIndex } from "./getters";
 
 function isPlayerIdTheCurrentPlayer(
   game: Game,
   playerId: string
-): Outcome<boolean, GameActionFailure> {
+): Outcome<void, GameActionFailure> {
   if (game.currentPlayerId !== playerId) {
     return failure({
       error: `Player with ID ${playerId} is not the current player.`,
       game,
     });
   }
-  return success(true);
+  return success(undefined);
+}
+
+/**
+ * Checks if a common action can be performed by the player.
+ * @param game The current game state.
+ * @param playerId The ID of the player attempting the action.
+ * @returns An Outcome indicating whether the action is performable or not.
+ */
+function isCommonActionPerformable(
+  game: Game,
+  playerId: string
+): Outcome<void, GameActionFailure> {
+  return validate(isPlayerIdTheCurrentPlayer(game, playerId))
+    .check(() => {
+      const isInRightState = isGameInRightState(game, ["playing"]);
+      if (isInRightState.isFailure) {
+        return failure(isInRightState.error);
+      }
+      return success(undefined);
+    })
+    .result();
 }
 
 /**
@@ -122,22 +143,18 @@ export function playerSaysCounterGabo(
 export function playerDrawsCardFromDeck(
   game: Game,
   playerId: string
-): Outcome<{game: Game, card: Card}, GameActionFailure> {
-  const isCurrentPlayerResult = isPlayerIdTheCurrentPlayer(game, playerId);
-  if (isCurrentPlayerResult.isFailure) {
-    return failure(isCurrentPlayerResult.error);
-  }
-  const stateResult = isGameInRightState(game, ["playing"]);
-  if (stateResult.isFailure) {
-    return failure(stateResult.error);
+): Outcome<{ game: Game; card: Card }, GameActionFailure> {
+  const commonActionResult = isCommonActionPerformable(game, playerId);
+  if (commonActionResult.isFailure) {
+    return failure(commonActionResult.error);
   }
 
-  const playerIndexResult = getPlayerIndex(game, playerId);
-  if (playerIndexResult.isFailure) {
-    return failure(playerIndexResult.error);
+  const currentPlayerResult = getPlayerById(game, playerId);
+  if (currentPlayerResult.isFailure) {
+    return failure(currentPlayerResult.error);
   }
 
-  const currentPlayer = game.players[playerIndexResult.value];
+  const currentPlayer = currentPlayerResult.value;
   const drawnCardResult = drawCard(game.deck);
 
   if (drawnCardResult.isFailure) {
@@ -148,10 +165,18 @@ export function playerDrawsCardFromDeck(
   }
 
   const drawnCard = drawnCardResult.value.card;
-  game.deck = drawnCardResult.value.deck;
-  currentPlayer.heldCard = drawnCard;
+  const updatedDeck = drawnCardResult.value.deck;
+  const updatedPlayer = { ...currentPlayer, heldCard: drawnCard };
 
-  return success({game, card: drawnCard});
+  const updatedGame = {
+    ...game,
+    deck: updatedDeck,
+    players: game.players.map((player) =>
+      player.id === updatedPlayer.id ? updatedPlayer : player
+    ),
+  };
+
+  return success({ game: updatedGame, card: drawnCard });
 }
 
 /**
@@ -217,16 +242,23 @@ export function playerDiscardsHeldCard(
   game: Game,
   playerId: string
 ): Outcome<Game, GameActionFailure> {
-  const isCurrentPlayerResult = isPlayerIdTheCurrentPlayer(game, playerId);
-  if (isCurrentPlayerResult.isFailure) {
-    return failure(isCurrentPlayerResult.error);
-  }
-  const stateResult = isGameInRightState(game, ["playing"]);
-  if (stateResult.isFailure) {
-    return failure(stateResult.error);
-  }
+  const playerIndexResult = validate(getPlayerIndex(game, playerId))
+    .check((playerIndex) => {
+      const isCurrentPlayer = isPlayerIdTheCurrentPlayer(game, playerId);
+      if (isCurrentPlayer.isFailure) {
+        return failure(isCurrentPlayer.error);
+      }
+      return success(playerIndex);
+    })
+    .check((playerIndex) => {
+      const isInRightState = isGameInRightState(game, ["playing"]);
+      if (isInRightState.isFailure) {
+        return failure(isInRightState.error);
+      }
+      return success(playerIndex);
+    })
+    .result();
 
-  const playerIndexResult = getPlayerIndex(game, playerId);
   if (playerIndexResult.isFailure) {
     return failure(playerIndexResult.error);
   }
@@ -246,7 +278,6 @@ export function playerDiscardsHeldCard(
   return success(game);
 }
 
-
 /**
  * Allows a player to play their held card, returning the card rule function if it exists.
  * The game engine is expected to handle the card effect based on the returned function.
@@ -256,8 +287,11 @@ export function playerDiscardsHeldCard(
  */
 export function playerPlaysHeldCard(
   game: Game,
-  playerId: string,
-): Outcome<{game: Game, cardRule: CardRuleFunction | undefined}, GameActionFailure> {
+  playerId: string
+): Outcome<
+  { game: Game; cardRule: CardRuleFunction | undefined },
+  GameActionFailure
+> {
   const isCurrentPlayerResult = isPlayerIdTheCurrentPlayer(game, playerId);
   if (isCurrentPlayerResult.isFailure) {
     return failure(isCurrentPlayerResult.error);
@@ -282,8 +316,10 @@ export function playerPlaysHeldCard(
   }
 
   game.stack = addCardToStack(game.stack, heldCard);
-  const cardRules = game.config.cardRules
-  const rule = cardRules.find(([card]) => card.suit === heldCard.suit && card.value === heldCard.value);
+  const cardRules = game.config.cardRules;
+  const rule = cardRules.find(
+    ([card]) => card.suit === heldCard.suit && card.value === heldCard.value
+  );
   const [, cardRule] = rule || [];
   currentPlayer.heldCard = null;
 
