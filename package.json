@@ -4,16 +4,21 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "server": "tsx src/server.ts",
+    "client": "tsx src/client-test.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "devDependencies": {
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.20.6",
     "typescript": "^5.8.3"
   },
   "dependencies": {
+    "ws": "^8.18.3",
     "zod": "^3.25.73"
   }
 }
