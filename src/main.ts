@@ -1,11 +1,11 @@
-import type { GameConfig } from "./domain/game/type";
+import type { GameConfig } from "./module/game/type";
 import {
   gameInitialization,
   playerActions,
   gameActions,
-} from "./domain/game/index";
-import { createPlayer } from "./domain/player";
-import { exchangeMatCard, lookupAndMaybeExchangeCard, lookupOthersCard, lookupOwnCard } from "./domain/card/cardRules";
+} from "./module/game/index";
+import { createPlayer } from "./module/player";
+import { exchangeMatCard, lookupAndMaybeExchangeCard, lookupOthersCard, lookupOwnCard } from "./module/card/cardRules";
 
 const config: GameConfig = {
   players: 5,
