@@ -1,5 +1,5 @@
-export { GaboServer } from './server';
-export { GameManager } from './gameManager';
-export { WebSocketHandler } from './webSocketHandler';
-export { HttpServer } from './httpServer';
+export { startGaboServer, getServerStats } from './server';
+export * as gameManager from './gameManager';
+export * as wsHandler from './webSocketHandler';
+export { createHttpServer } from './httpServer';
 export * from './types';
