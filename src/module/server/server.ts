@@ -1,144 +1,104 @@
-import { WebSocketServer, WebSocket } from 'ws';
-import { randomUUID } from 'crypto';
+import { WebSocketServer } from 'ws';
+import { createServer } from 'http';
+import { GameManager } from './gameManager';
+import { WebSocketHandler } from './webSocketHandler';
+import { HttpServer } from './httpServer';
 
-const PORT = process.env.PORT ? parseInt(process.env.PORT) : 8080;
+// Configuration
+const WS_PORT = process.env.WS_PORT ? parseInt(process.env.WS_PORT) : 8080;
+const HTTP_PORT = process.env.HTTP_PORT ? parseInt(process.env.HTTP_PORT) : 3001;
 
-// Types pour les messages
-type ClientMessage = {
-  type: string;
-  data?: any;
-};
+export class GaboServer {
+  private gameManager: GameManager;
+  private wsHandler: WebSocketHandler;
+  private httpServer: HttpServer;
+  private wss: WebSocketServer;
 
-type ServerMessage = {
-  type: string;
-  data?: any;
-  timestamp?: string;
-  clientId?: string;
-};
+  constructor() {
+    this.gameManager = new GameManager();
+    this.wsHandler = new WebSocketHandler(this.gameManager);
+    this.httpServer = new HttpServer(this.gameManager);
+    
+    // Créer le serveur HTTP pour l'API REST
+    const server = createServer(this.httpServer.getApp());
+    
+    // Créer le serveur WebSocket sur le même serveur HTTP
+    this.wss = new WebSocketServer({ 
+      server,
+      path: '/ws'  // WebSocket sera accessible sur ws://localhost:3001/ws
+    });
 
-// Map pour stocker les clients connectés avec leurs IDs
-const clients = new Map<WebSocket, string>();
+    this.setupWebSocketServer();
+    this.setupCleanupTasks();
+    this.setupGracefulShutdown();
 
-// Créer le serveur WebSocket
-const wss = new WebSocketServer({ port: PORT });
-
-console.log(`🚀 WebSocket Server démarré sur le port ${PORT}`);
-
-// Gestionnaire de connexions
-wss.on('connection', (ws, request) => {
-  const clientIp = request.socket.remoteAddress;
-  const clientId = randomUUID();
-  
-  // Stocker le client avec son ID
-  clients.set(ws, clientId);
-  
-  console.log(`✅ Nouveau client connecté depuis ${clientIp} - ID: ${clientId}`);
-
-  // Envoyer un message de bienvenue avec l'ID assigné
-  const welcomeMessage: ServerMessage = {
-    type: 'welcome',
-    data: { message: 'Connexion réussie au serveur Gabo!' },
-    clientId: clientId,
-    timestamp: new Date().toISOString()
-  };
-  ws.send(JSON.stringify(welcomeMessage));
-
-  // Gestionnaire de messages reçus
-  ws.on('message', (rawMessage) => {
-    try {
-      const message: ClientMessage = JSON.parse(rawMessage.toString());
-      console.log(`📨 Message reçu de ${clientId}:`, message);
-
-      // Traiter le message selon son type
-      handleMessage(ws, message);
-      
-    } catch (error) {
-      console.error('❌ Erreur lors du parsing du message:', error);
-      const errorMessage: ServerMessage = {
-        type: 'error',
-        data: { error: 'Format de message invalide' },
-        timestamp: new Date().toISOString()
-      };
-      ws.send(JSON.stringify(errorMessage));
-    }
-  });
-
-  // Gestionnaire de fermeture de connexion
-  ws.on('close', (code, reason) => {
-    const disconnectedClientId = clients.get(ws);
-    clients.delete(ws);
-    console.log(`🔌 Client ${disconnectedClientId} déconnecté - Code: ${code}, Raison: ${reason}`);
-  });
-
-  // Gestionnaire d'erreurs
-  ws.on('error', (error) => {
-    console.error('💥 Erreur WebSocket:', error);
-  });
-});
-
-// Fonction pour traiter les messages
-function handleMessage(ws: WebSocket, message: ClientMessage) {
-  const response: ServerMessage = {
-    type: '',
-    timestamp: new Date().toISOString()
-  };
-
-  switch (message.type) {
-    case 'ping':
-      response.type = 'pong';
-      response.data = { message: 'pong!' };
-      break;
-
-    case 'echo':
-      response.type = 'echo';
-      response.data = message.data;
-      break;
-
-    case 'broadcast':
-      // Récupérer l'ID du client qui envoie le message
-      const senderClientId = clients.get(ws);
-      
-      // Diffuser le message à tous les clients connectés avec l'ID du sender
-      const broadcastMessage: ServerMessage = {
-        type: 'broadcast',
-        data: { 
-          ...message.data, 
-          from: senderClientId // Le serveur ajoute l'ID réel du sender
-        },
-        timestamp: new Date().toISOString()
-      };
-      
-      wss.clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify(broadcastMessage));
-        }
-      });
-      return; // Pas de réponse individuelle
-
-    default:
-      response.type = 'unknown';
-      response.data = { error: `Type de message inconnu: ${message.type}` };
+    // Démarrer le serveur HTTP (qui inclut aussi le WebSocket)
+    server.listen(HTTP_PORT, () => {
+      console.log(`🌐 Serveur Gabo démarré:`);
+      console.log(`   📡 HTTP API: http://localhost:${HTTP_PORT}`);
+      console.log(`   🔌 WebSocket: ws://localhost:${HTTP_PORT}/ws`);
+      console.log(`   💾 Game Manager initialisé`);
+    });
   }
 
-  // Envoyer la réponse
-  if (ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(response));
+  private setupWebSocketServer(): void {
+    this.wss.on('connection', (ws, request) => {
+      const clientIp = request.socket.remoteAddress;
+      this.wsHandler.handleConnection(ws, clientIp);
+    });
+
+    console.log(`🎮 WebSocket Handler configuré`);
+  }
+
+  private setupCleanupTasks(): void {
+    // Nettoyer les games inactives toutes les heures
+    setInterval(() => {
+      this.gameManager.cleanupInactiveGames();
+    }, 60 * 60 * 1000);
+
+    console.log(`🧹 Tâches de nettoyage configurées`);
+  }
+
+  private setupGracefulShutdown(): void {
+    const shutdown = (signal: string) => {
+      console.log(`\n🛑 Signal ${signal} reçu, arrêt du serveur...`);
+      
+      // Fermer le serveur WebSocket
+      this.wss.close(() => {
+        console.log('🔌 WebSocket Server fermé');
+      });
+
+      // Notifier tous les clients connectés
+      this.wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            type: 'serverShutdown',
+            data: { message: 'Le serveur va redémarrer' },
+            timestamp: new Date().toISOString()
+          }));
+          client.close();
+        }
+      });
+
+      console.log('✅ Serveur fermé proprement');
+      process.exit(0);
+    };
+
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+  }
+
+  // Méthodes publiques pour monitoring
+  getStats() {
+    return {
+      games: this.gameManager.getStats(),
+      connections: this.wsHandler.getClientCount(),
+      uptime: process.uptime()
+    };
   }
 }
 
-// Gestionnaire d'arrêt propre
-process.on('SIGINT', () => {
-  console.log('\n🛑 Arrêt du serveur...');
-  wss.close(() => {
-    console.log('✅ Serveur fermé proprement');
-    process.exit(0);
-  });
-});
-
-process.on('SIGTERM', () => {
-  console.log('\n🛑 Signal SIGTERM reçu, arrêt du serveur...');
-  wss.close(() => {
-    console.log('✅ Serveur fermé proprement');
-    process.exit(0);
-  });
-});
+// Démarrer le serveur si ce fichier est exécuté directement
+if (import.meta.url === `file://${process.argv[1]}`) {
+  new GaboServer();
+}
